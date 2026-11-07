@@ -18,13 +18,18 @@
 ## Get it
 
 **macOS (Apple Silicon):** download the DMG from the
-[latest release](https://github.com/DyskLab/dyskfocus/releases/latest). It bundles PHP and SQLite, so there's no server
-to set up. That build predates the rename, so it still installs as **Stackr**. To get the DyskFocus name and icon now,
-or to run on Intel, [build it yourself](desktop.md). A build from this source copies your Stackr data the first time it
-opens.
+[latest release](https://github.com/DyskLab/dyskfocus/releases/latest) and drag **DyskFocus** into Applications. It
+bundles PHP and SQLite, so there's no server to set up. On Intel, [build it yourself](desktop.md).
 
 The app isn't notarized, so macOS blocks the first launch. Open **System Settings > Privacy & Security** and choose
-**Open Anyway**.
+**Open Anyway**, or run:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/DyskFocus.app
+```
+
+If you used Stackr before, your data is copied over the first time you open DyskFocus, and the old copy stays where it
+was.
 
 **Self-hosted:** see [Quick start](#quick-start).
 

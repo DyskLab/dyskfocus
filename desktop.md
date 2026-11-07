@@ -88,7 +88,7 @@ npm run dist          # prepares the Laravel app + runs electron-builder (mac)
 `npm run prepare-app` (run automatically by `dist`) stages a production copy of
 the Laravel app into `desktop/app-dist` (`composer install --no-dev`, fresh SPA
 build, bundled `.env`, cleared caches). The output installers land in
-`desktop/dist/` (`DyskFocus-1.0.0.dmg`, `DyskFocus-1.0.0-mac.zip`).
+`desktop/dist/` (`DyskFocus-1.1.0.dmg`, `DyskFocus-1.1.0-mac.zip`).
 
 ## Try it without building an installer
 

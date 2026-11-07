@@ -1,6 +1,7 @@
 {
   "name": "dyskfocus-desktop",
-  "version": "1.0.0",
+  "productName": "DyskFocus",
+  "version": "1.1.0",
   "description": "DyskFocus — standalone macOS app (Electron shell around the bundled Laravel app + static PHP).",
   "main": "main.js",
   "author": "DyskFocus",

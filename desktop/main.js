@@ -49,12 +49,13 @@ function appKey(userData) {
 }
 
 /**
- * The app was called Stackr, and its data folder follows the app name. Copy the
- * old data once rather than moving it, so the old folder stays as a backup. The
- * database goes last: its presence is what marks the copy as finished.
+ * The app was called Stackr, and it kept its data in a folder named after its
+ * package, stackr-desktop. Copy the old data once rather than moving it, so the
+ * old folder stays as a backup. The database goes last: its presence is what
+ * marks the copy as finished.
  */
 function copyLegacyData(userData) {
-  const legacy = path.join(app.getPath('appData'), 'Stackr')
+  const legacy = path.join(app.getPath('appData'), 'stackr-desktop')
   if (fs.existsSync(path.join(userData, 'database', 'database.sqlite'))) return
   if (!fs.existsSync(path.join(legacy, 'database', 'database.sqlite'))) return
   for (const item of ['app.key', 'storage', 'database']) {
