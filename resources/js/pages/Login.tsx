@@ -10,7 +10,7 @@ export default function Login() {
   const { theme, toggleTheme } = useUI()
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login')
   const [name, setName] = useState('')
-  const [email, setEmail] = useState('demo@omniflow.test')
+  const [email, setEmail] = useState('demo@dyskfocus.test')
   const [password, setPassword] = useState('password')
   const [confirm, setConfirm] = useState('')
   const [remember, setRemember] = useState(true)

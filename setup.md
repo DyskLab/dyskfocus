@@ -9,7 +9,7 @@ DyskFocus is a single Laravel app that serves a React SPA with a same-origin RES
 - Composer 2
 - Node 20+ / npm
 - SQLite
-- (Optional) [DDEV](https://ddev.com) — the app runs at `https://omniflow.ddev.site`
+- (Optional) [DDEV](https://ddev.com) — the app runs at `https://dyskfocus.ddev.site`
 
 ## 1. Install dependencies & build
 
@@ -38,7 +38,7 @@ Key settings (already set for DDEV):
 
 - `DB_CONNECTION=sqlite` — the database file is `database/database.sqlite`
 - `SESSION_DRIVER=database`, `CACHE_STORE=database`
-- `APP_URL=https://omniflow.ddev.site`
+- `APP_URL=https://dyskfocus.ddev.site`
 
 Optional features:
 

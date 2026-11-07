@@ -17,7 +17,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $user = User::updateOrCreate(
-            ['email' => 'demo@omniflow.test'],
+            ['email' => 'demo@dyskfocus.test'],
             [
                 'name' => 'Demo User',
                 'password' => Hash::make('password'),
@@ -119,6 +119,6 @@ class DatabaseSeeder extends Seeder
             'position' => 1,
         ]);
 
-        $this->command?->info('Seeded demo user: demo@omniflow.test / password');
+        $this->command?->info('Seeded demo user: demo@dyskfocus.test / password');
     }
 }
