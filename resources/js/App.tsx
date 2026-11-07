@@ -27,7 +27,7 @@ const FolderView = lazy(() => import('./pages/FolderView'))
 function Splash() {
   return (
     <div className="flex h-full items-center justify-center text-slate-400">
-      <div className="animate-pulse text-sm">Loading Stackr…</div>
+      <div className="animate-pulse text-sm">Loading DyskFocus…</div>
     </div>
   )
 }

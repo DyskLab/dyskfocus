@@ -41,7 +41,7 @@ class NotifyDueTasks extends Command
                 'title' => $count === 1 ? 'Task due' : "{$count} tasks due",
                 'body' => $count === 1 ? $first->title : $first->title.' and '.($count - 1).' more',
                 'url' => '/today',
-                'tag' => 'stackr-due',
+                'tag' => 'dyskfocus-due',
             ];
 
             if ($sender->sendToUser($user, $payload) > 0) {

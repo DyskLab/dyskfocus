@@ -187,7 +187,7 @@ export default function Sidebar({ onNavigate, forceFull = false }: { onNavigate?
     >
       <div className="flex items-center gap-2 px-4 py-3">
         <Logo size={22} />
-        <span className="font-semibold">Stackr</span>
+        <span className="font-semibold">DyskFocus</span>
         {!forceFull && (
           <button
             onClick={toggleSidebar}

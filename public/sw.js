@@ -1,5 +1,5 @@
-// Minimal service worker to make Stackr an installable PWA (webview-ready).
-const CACHE = 'stackr-v2'
+// Minimal service worker to make DyskFocus an installable PWA (webview-ready).
+const CACHE = 'dyskfocus-v2'
 
 self.addEventListener('install', () => self.skipWaiting())
 
@@ -11,13 +11,13 @@ self.addEventListener('push', (event) => {
   } catch {
     data = { body: event.data ? event.data.text() : '' }
   }
-  const title = data.title || 'Stackr'
+  const title = data.title || 'DyskFocus'
   event.waitUntil(
     self.registration.showNotification(title, {
       body: data.body || '',
       icon: '/icon-192.png',
       badge: '/icon-192.png',
-      tag: data.tag || 'stackr',
+      tag: data.tag || 'dyskfocus',
       data: { url: data.url || '/' },
     })
   )

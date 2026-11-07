@@ -28,7 +28,7 @@ $app = Application::configure(basePath: dirname(__DIR__))
 
 // Desktop (Electron) build: relocate the writable storage dir out of the
 // read-only app bundle into the OS per-user data directory.
-if ($storagePath = getenv('STACKR_STORAGE_PATH')) {
+if ($storagePath = getenv('DYSKFOCUS_STORAGE_PATH')) {
     $app->useStoragePath($storagePath);
 }
 

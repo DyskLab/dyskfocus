@@ -32,7 +32,7 @@ export function useDueReminders() {
       if (t.due_date && t.due_date <= today && !notified.current.has(t.id)) {
         notified.current.add(t.id)
         try {
-          new Notification('Stackr — task due', { body: t.title })
+          new Notification('DyskFocus — task due', { body: t.title })
         } catch {
           /* notifications unavailable */
         }

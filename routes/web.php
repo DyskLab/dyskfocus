@@ -14,8 +14,8 @@ Route::post('/api/setup/migrate', [SetupController::class, 'migrate'])->withoutM
 // PWA manifest with the correct MIME type (works on any web server).
 Route::get('/manifest.webmanifest', function () {
     $manifest = [
-        'name' => 'Stackr',
-        'short_name' => 'Stackr',
+        'name' => 'DyskFocus',
+        'short_name' => 'DyskFocus',
         'description' => 'A focused, OmniFocus-style task manager.',
         'start_url' => '/',
         'scope' => '/',

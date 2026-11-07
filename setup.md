@@ -1,6 +1,6 @@
-# Stackr — Setup
+# DyskFocus — Setup
 
-Stackr is a single Laravel app that serves a React SPA with a same-origin REST API
+DyskFocus is a single Laravel app that serves a React SPA with a same-origin REST API
 (Sanctum cookie auth, SQLite). This guide covers a fresh install.
 
 ## Requirements
@@ -66,7 +66,7 @@ You do **not** need to seed the database. Open the app — with no database yet,
    can't run it, run `php artisan migrate --force` (or `ddev artisan migrate --force`)
    and click **re-check**.
 2. **Account** — create the first (owner) account.
-3. **Import** — optionally restore a Stackr JSON backup, or **Skip** to start empty.
+3. **Import** — optionally restore a DyskFocus JSON backup, or **Skip** to start empty.
 
 When it finishes you land in the app, logged in. The wizard never shows again once
 an account exists.

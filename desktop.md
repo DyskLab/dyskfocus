@@ -1,11 +1,11 @@
-# Stackr — Standalone macOS app (Electron + static PHP)
+# DyskFocus — Standalone macOS app (Electron + static PHP)
 
-This builds Stackr into a double-clickable **`.app`/`.dmg`** that runs with no
+This builds DyskFocus into a double-clickable **`.app`/`.dmg`** that runs with no
 DDEV, no separate server, and no PHP install on the target machine. The Electron
 shell boots the bundled Laravel app with a **bundled static PHP binary** on a
 random `127.0.0.1` port and shows it in a native window.
 
-> Why not NativePHP? Its current release only supports Laravel ≤ 12; Stackr runs
+> Why not NativePHP? Its current release only supports Laravel ≤ 12; DyskFocus runs
 > on Laravel 13, so we bundle our own shell. When NativePHP ships Laravel 13
 > support, migrating to it is an option.
 
@@ -14,12 +14,12 @@ All files live in `desktop/`.
 ## What the desktop build changes
 
 - **Realtime (SSE) is disabled** — the single desktop PHP process shouldn't hold
-  a long-lived connection. Detected via `window.__STACKR_DESKTOP__` (set by the
-  blade when `STACKR_DESKTOP=1`).
+  a long-lived connection. Detected via `window.__DYSKFOCUS_DESKTOP__` (set by the
+  blade when `DYSKFOCUS_DESKTOP=1`).
 - **Web push is hidden** — not applicable in Electron (use in-app *Reminders*
   instead; native notifications can be added later via IPC).
 - **Writable state** (SQLite DB + `storage/`) is relocated to the OS per-user
-  data dir (`~/Library/Application Support/Stackr`) so the bundle stays read-only.
+  data dir (`~/Library/Application Support/DyskFocus`) so the bundle stays read-only. On first launch, data from an earlier Stackr install is copied there.
 - **Auth** works over `http://127.0.0.1:<port>` (Sanctum stateful domains + APP_URL
   are set at runtime by `desktop/main.js`).
 
@@ -53,7 +53,7 @@ desktop/bin/php -m   # confirm pdo_sqlite, sqlite3, mbstring, openssl, bcmath, c
 # install the tool (one-time)
 composer global require crazywhalecc/static-php-cli
 
-# build a static php (cli) for this Mac's arch with the extensions Stackr needs
+# build a static php (cli) for this Mac's arch with the extensions DyskFocus needs
 spc build \
   "pdo,pdo_sqlite,sqlite3,mbstring,openssl,tokenizer,bcmath,curl,fileinfo,\
 dom,xml,xmlwriter,simplexml,filter,session,ctype,phar,sockets,posix,pcntl,gd,zip" \
@@ -88,7 +88,7 @@ npm run dist          # prepares the Laravel app + runs electron-builder (mac)
 `npm run prepare-app` (run automatically by `dist`) stages a production copy of
 the Laravel app into `desktop/app-dist` (`composer install --no-dev`, fresh SPA
 build, bundled `.env`, cleared caches). The output installers land in
-`desktop/dist/` (`Stackr-1.0.0.dmg`, `Stackr-1.0.0-mac.zip`).
+`desktop/dist/` (`DyskFocus-1.0.0.dmg`, `DyskFocus-1.0.0-mac.zip`).
 
 ## Try it without building an installer
 
@@ -98,7 +98,7 @@ binary, no packaging):
 ```bash
 cd desktop
 npm install
-STACKR_PHP="$(which php)" npm run start
+DYSKFOCUS_PHP="$(which php)" npm run start
 ```
 
 This launches the Electron window against the project root, migrating and serving
@@ -119,12 +119,12 @@ distribute:
 3. `npm run dist` will sign and notarize the output.
 
 For personal use you can skip this and right-click → Open the first time, or run
-`xattr -dr com.apple.quarantine /Applications/Stackr.app`.
+`xattr -dr com.apple.quarantine /Applications/DyskFocus.app`.
 
 ## Where user data lives
 
 ```
-~/Library/Application Support/Stackr/
+~/Library/Application Support/DyskFocus/
 ├── app.key                 # per-install APP_KEY (stable, do not delete)
 ├── database/database.sqlite # your data
 └── storage/                 # sessions, cache, compiled views, logs

@@ -54,7 +54,7 @@ export default function Login() {
       <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-slate-900 shadow-xl border border-slate-200 dark:border-slate-800 p-8">
         <div className="mb-6 flex items-center gap-2">
           <Logo size={24} />
-          <h1 className="text-xl font-semibold">Stackr</h1>
+          <h1 className="text-xl font-semibold">DyskFocus</h1>
         </div>
         <p className="mb-6 text-sm text-slate-500">
           {mode === 'login' ? 'Sign in to your tasks.' : mode === 'register' ? 'Create your account.' : 'Reset your password by email.'}

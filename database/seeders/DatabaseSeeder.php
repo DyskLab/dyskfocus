@@ -39,7 +39,7 @@ class DatabaseSeeder extends Seeder
         $launch = Project::create([
             'user_id' => $user->id,
             'folder_id' => $work->id,
-            'title' => 'Launch Stackr v1',
+            'title' => 'Launch DyskFocus v1',
             'note' => "# Launch checklist\n\n- Ship the **REST API**\n- Polish the _dark mode_\n- Write [docs](https://example.com)\n\n> Target: end of month.",
             'type' => 'sequential',
             'status' => 'active',

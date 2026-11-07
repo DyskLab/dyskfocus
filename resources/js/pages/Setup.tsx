@@ -86,7 +86,7 @@ export default function Setup({ status: initial }: { status: SetupStatus }) {
       await api.post('/import', json)
       finish()
     } catch {
-      setErr('Import failed — the file is not a valid Stackr backup.')
+      setErr('Import failed — the file is not a valid DyskFocus backup.')
     } finally {
       setBusy(false)
     }
@@ -102,7 +102,7 @@ export default function Setup({ status: initial }: { status: SetupStatus }) {
       <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 shadow-xl">
         <div className="mb-1 flex items-center gap-2">
           <Logo size={24} />
-          <h1 className="text-xl font-semibold">Stackr</h1>
+          <h1 className="text-xl font-semibold">DyskFocus</h1>
         </div>
         <p className="mb-6 text-sm text-slate-500">First-run setup</p>
 

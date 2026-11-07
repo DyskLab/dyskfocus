@@ -1,4 +1,4 @@
-// Electron main process for the standalone Stackr macOS app.
+// Electron main process for the standalone DyskFocus macOS app.
 //
 // It boots the bundled Laravel app with a bundled *static* PHP binary
 // (`php artisan serve`) on a random localhost port, runs migrations, then
@@ -19,7 +19,7 @@ const isPackaged = app.isPackaged
 // Paths differ between `electron .` (dev) and a packaged .app.
 const RES = isPackaged ? process.resourcesPath : path.join(__dirname, '..')
 const APP_ROOT = isPackaged ? path.join(RES, 'laravel') : path.join(__dirname, '..')
-const PHP_BIN = isPackaged ? path.join(RES, 'php', 'php') : (process.env.STACKR_PHP || 'php')
+const PHP_BIN = isPackaged ? path.join(RES, 'php', 'php') : (process.env.DYSKFOCUS_PHP || 'php')
 const PHP_INI = isPackaged ? path.join(RES, 'php', 'php.ini') : path.join(__dirname, 'php.ini')
 
 let phpProc = null
@@ -48,6 +48,21 @@ function appKey(userData) {
   return key
 }
 
+/**
+ * The app was called Stackr, and its data folder follows the app name. Copy the
+ * old data once rather than moving it, so the old folder stays as a backup. The
+ * database goes last: its presence is what marks the copy as finished.
+ */
+function copyLegacyData(userData) {
+  const legacy = path.join(app.getPath('appData'), 'Stackr')
+  if (fs.existsSync(path.join(userData, 'database', 'database.sqlite'))) return
+  if (!fs.existsSync(path.join(legacy, 'database', 'database.sqlite'))) return
+  for (const item of ['app.key', 'storage', 'database']) {
+    const from = path.join(legacy, item)
+    if (fs.existsSync(from)) fs.cpSync(from, path.join(userData, item), { recursive: true })
+  }
+}
+
 function buildEnv(userData, port) {
   const storagePath = path.join(userData, 'storage')
   const dbPath = path.join(userData, 'database', 'database.sqlite')
@@ -62,13 +77,13 @@ function buildEnv(userData, port) {
   return {
     ...process.env,
     PHPRC: PHP_INI, // load the bundled php.ini in artisan + the built-in server workers
-    APP_NAME: 'Stackr',
+    APP_NAME: 'DyskFocus',
     APP_ENV: 'production',
     APP_DEBUG: 'false',
     APP_KEY: appKey(userData),
     APP_URL: `http://127.0.0.1:${port}`,
-    STACKR_DESKTOP: '1',
-    STACKR_STORAGE_PATH: storagePath,
+    DYSKFOCUS_DESKTOP: '1',
+    DYSKFOCUS_STORAGE_PATH: storagePath,
     DB_CONNECTION: 'sqlite',
     DB_DATABASE: dbPath,
     SESSION_DRIVER: 'file',
@@ -104,6 +119,7 @@ function waitForServer(port, timeoutMs = 20000) {
 
 async function boot() {
   const userData = app.getPath('userData')
+  copyLegacyData(userData)
   const port = await freePort()
   const env = buildEnv(userData, port)
 
@@ -130,7 +146,7 @@ async function boot() {
     height: 820,
     minWidth: 720,
     minHeight: 560,
-    title: 'Stackr',
+    title: 'DyskFocus',
     backgroundColor: '#0f172a',
     webPreferences: { contextIsolation: true },
   })
@@ -147,7 +163,7 @@ async function boot() {
 
 app.whenReady().then(() =>
   boot().catch((err) => {
-    console.error('Failed to start Stackr:', err)
+    console.error('Failed to start DyskFocus:', err)
     app.quit()
   })
 )

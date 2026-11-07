@@ -1,9 +1,9 @@
 {
-  "name": "stackr-desktop",
+  "name": "dyskfocus-desktop",
   "version": "1.0.0",
-  "description": "Stackr — standalone macOS app (Electron shell around the bundled Laravel app + static PHP).",
+  "description": "DyskFocus — standalone macOS app (Electron shell around the bundled Laravel app + static PHP).",
   "main": "main.js",
-  "author": "Stackr",
+  "author": "DyskFocus",
   "license": "MIT",
   "scripts": {
     "prepare-app": "bash scripts/prepare-app.sh",
@@ -17,8 +17,8 @@
     "electron-builder": "^25.0.0"
   },
   "build": {
-    "appId": "net.myservers.stackr",
-    "productName": "Stackr",
+    "appId": "net.myservers.dyskfocus",
+    "productName": "DyskFocus",
     "directories": { "output": "dist" },
     "files": ["main.js"],
     "extraResources": [

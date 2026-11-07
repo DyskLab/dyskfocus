@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Bell, BellRing, Download, Settings, Upload } from 'lucide-react'
+import { Bell, BellRing, Download, Heart, Settings, Upload } from 'lucide-react'
 import PageShell from '../components/PageShell'
 import { useAuth } from '../auth/AuthContext'
 import { useUI } from '../store/ui'
@@ -45,7 +45,7 @@ export default function SettingsPage() {
       } else {
         await subscribeToPush()
         setPushOn(true)
-        setPushMsg('Push on — you’ll be notified about due tasks even when Stackr is closed.')
+        setPushMsg('Push on — you’ll be notified about due tasks even when DyskFocus is closed.')
       }
     } catch (e: unknown) {
       setPushMsg((e as Error)?.message ?? 'Could not update push notifications.')
@@ -90,9 +90,9 @@ export default function SettingsPage() {
     const perm = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission()
     if (perm === 'granted') {
       setRemindersEnabled(true)
-      setReminderMsg('Reminders on — you’ll be notified about due tasks while Stackr is open.')
+      setReminderMsg('Reminders on — you’ll be notified about due tasks while DyskFocus is open.')
       try {
-        new Notification('Stackr', { body: 'Due-date reminders are on.' })
+        new Notification('DyskFocus', { body: 'Due-date reminders are on.' })
       } catch {
         /* ignore */
       }
@@ -111,7 +111,7 @@ export default function SettingsPage() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `stackr-backup-${String(data.exported_at ?? '').slice(0, 10) || 'export'}.json`
+      a.download = `dyskfocus-backup-${String(data.exported_at ?? '').slice(0, 10) || 'export'}.json`
       a.click()
       URL.revokeObjectURL(url)
     } catch {
@@ -141,7 +141,7 @@ export default function SettingsPage() {
       await queryClient.invalidateQueries()
       setMsg({ kind: 'ok', text: 'Import successful — your data has been restored.' })
     } catch {
-      setMsg({ kind: 'err', text: 'Import failed — the file is not a valid Stackr backup.' })
+      setMsg({ kind: 'err', text: 'Import failed — the file is not a valid DyskFocus backup.' })
     } finally {
       setBusy(false)
       if (fileRef.current) fileRef.current.value = ''
@@ -229,7 +229,7 @@ export default function SettingsPage() {
             <Bell size={16} /> Due-date reminders: {remindersEnabled ? 'On' : 'Off'}
           </button>
           <p className="mt-2 text-xs text-slate-400">
-            Shows a browser notification for tasks that are due, while Stackr is open in this browser.
+            Shows a browser notification for tasks that are due, while DyskFocus is open in this browser.
           </p>
           {reminderMsg && <p className="mt-1 text-xs text-slate-500">{reminderMsg}</p>}
         </section>
@@ -249,12 +249,12 @@ export default function SettingsPage() {
             <BellRing size={16} /> Push notifications: {pushOn ? 'On' : 'Off'}
           </button>
           <p className="mt-2 text-xs text-slate-400">
-            Sends a notification when a task becomes due — even when Stackr is closed. Delivered to this device;
+            Sends a notification when a task becomes due — even when DyskFocus is closed. Delivered to this device;
             enable it on each device you want alerts on.
           </p>
           {!pushSupported && (
             <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-              This browser doesn’t support push notifications (install Stackr as an app, or use a supported browser).
+              This browser doesn’t support push notifications (install DyskFocus as an app, or use a supported browser).
             </p>
           )}
           {pushMsg && <p className="mt-1 text-xs text-slate-500">{pushMsg}</p>}
@@ -334,6 +334,19 @@ export default function SettingsPage() {
               {msg.text}
             </p>
           )}
+        </section>
+
+        <section>
+          <h2 className="mb-2 text-sm font-semibold">Support</h2>
+          <a
+            href="https://buymeacoffee.com/fannydevz"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:border-brand hover:text-brand"
+          >
+            <Heart size={16} /> Support DyskFocus
+          </a>
+          <p className="mt-2 text-xs text-slate-400">If DyskFocus is useful to you, you can support its development on Buy Me a Coffee.</p>
         </section>
       </div>
     </PageShell>

@@ -1,4 +1,4 @@
-name: stackr
+name: dyskfocus
 type: laravel
 docroot: public
 php_version: "8.4"

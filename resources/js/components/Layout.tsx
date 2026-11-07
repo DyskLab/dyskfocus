@@ -176,7 +176,7 @@ export default function Layout() {
               <Menu size={20} />
             </button>
             <Logo size={20} />
-            <span className="font-semibold">Stackr</span>
+            <span className="font-semibold">DyskFocus</span>
           </div>
 
           <main className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950">
