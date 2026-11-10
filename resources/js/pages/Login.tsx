@@ -5,13 +5,13 @@ import { useUI } from '../store/ui'
 import Logo from '../components/Logo'
 import { api, ensureCsrf } from '../lib/api'
 
-export default function Login() {
+export default function Login({ allowRegister = false }: { allowRegister?: boolean }) {
   const { login, register } = useAuth()
   const { theme, toggleTheme } = useUI()
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login')
   const [name, setName] = useState('')
-  const [email, setEmail] = useState('demo@dyskfocus.test')
-  const [password, setPassword] = useState('password')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [remember, setRemember] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -31,7 +31,7 @@ export default function Login() {
       } else {
         await ensureCsrf()
         await api.post('/forgot-password', { email })
-        setInfo('If that email exists, a reset link has been sent (check Mailpit in DDEV).')
+        setInfo('If that email exists, a reset link has been sent.')
       }
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } }
@@ -123,20 +123,22 @@ export default function Login() {
             Forgot password?
           </button>
         )}
-        <button
-          onClick={() => {
-            setMode(mode === 'login' ? 'register' : 'login')
-            setError(null)
-            setInfo(null)
-          }}
-          className="mt-4 w-full text-center text-sm text-brand hover:underline"
-        >
-          {mode === 'login'
-            ? "Don't have an account? Register"
-            : mode === 'register'
-              ? 'Already have an account? Sign in'
-              : 'Back to sign in'}
-        </button>
+        {(allowRegister || mode !== 'login') && (
+          <button
+            onClick={() => {
+              setMode(mode === 'login' ? 'register' : 'login')
+              setError(null)
+              setInfo(null)
+            }}
+            className="mt-4 w-full text-center text-sm text-brand hover:underline"
+          >
+            {mode === 'login'
+              ? "Don't have an account? Register"
+              : mode === 'register'
+                ? 'Already have an account? Sign in'
+                : 'Back to sign in'}
+          </button>
+        )}
       </div>
     </div>
   )

@@ -24,8 +24,31 @@ export function applyDeferred(tasks: Task[], mode: TaskFilter['deferred']): Task
     .map((t) => (t.children ? { ...t, children: t.children.filter(keep) } : t))
 }
 
+/**
+ * Re-slot a reordered visible subset back into the full list: hidden (deferred)
+ * tasks keep their place, visible ones take the visible slots in the new order.
+ * Without this, hidden tasks keep stale positions that collide with 0..n-1.
+ */
+function mergeOrder(all: Task[], visibleOrdered: Task[]): Task[] {
+  const visibleIds = new Set(visibleOrdered.map((t) => t.id))
+  let i = 0
+  return all.map((t) => (visibleIds.has(t.id) ? visibleOrdered[i++] : t))
+}
+
 /** A single reorderable group (top-level list, or one parent's subtasks). */
-function SortableGroup({ groupId, tasks, indent = false }: { groupId: string; tasks: Task[]; indent?: boolean }) {
+function SortableGroup({
+  groupId,
+  tasks,
+  all = tasks,
+  indent = false,
+}: {
+  groupId: string
+  /** Visible tasks in this group. */
+  tasks: Task[]
+  /** Every task in this group, including ones hidden by the deferred filter. */
+  all?: Task[]
+  indent?: boolean
+}) {
   const [order, setOrder] = useState(tasks)
   const reorder = useReorderTasks()
   const registerGroup = useDnd((s) => s.registerGroup)
@@ -40,12 +63,12 @@ function SortableGroup({ groupId, tasks, indent = false }: { groupId: string; ta
         const byId = new Map(order.map((t) => [t.id, t]))
         const next = orderedIds.map((id) => byId.get(id)).filter(Boolean) as Task[]
         setOrder(next) // optimistic
-        reorder.mutate(next.map((t, i) => ({ id: t.id, position: i })))
+        reorder.mutate(mergeOrder(all, next).map((t, i) => ({ id: t.id, position: i })))
       },
     })
     return () => unregisterGroup(groupId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [order, groupId])
+  }, [order, groupId, all])
 
   return (
     <SortableContext items={order.map((t) => t.id)} strategy={verticalListSortingStrategy}>
@@ -53,7 +76,12 @@ function SortableGroup({ groupId, tasks, indent = false }: { groupId: string; ta
         <div key={t.id}>
           <TaskRow task={t} draggable indent={indent} />
           {t.children && t.children.length > 0 && (
-            <SortableGroup groupId={`children:${t.id}`} tasks={t.children} indent />
+            <SortableGroup
+              groupId={`children:${t.id}`}
+              tasks={t.children}
+              all={all.find((a) => a.id === t.id)?.children ?? t.children}
+              indent
+            />
           )}
         </div>
       ))}
@@ -103,7 +131,7 @@ export default function TaskList({ tasks, reorderable = true }: { tasks: Task[];
   // Reorderable todolists (Inbox, Project): nested tree with draggable subtasks.
   return (
     <div>
-      <SortableGroup groupId="top" tasks={list} />
+      <SortableGroup groupId="top" tasks={list} all={tasks} />
     </div>
   )
 }

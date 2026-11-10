@@ -27,11 +27,14 @@ class ViewController extends Controller
     {
         $today = $request->user()->todayDate();
 
+        // Due/overdue items always show (even if a sequential project would
+        // block them); flagged-only items need to be actionable.
         $tasks = $request->user()->tasks()
             ->available($today)
+            ->inActiveProject()
             ->where(function ($q) use ($today) {
                 $q->whereDate('due_date', '<=', $today)
-                    ->orWhere('flagged', true);
+                    ->orWhere(fn ($f) => $f->where('flagged', true)->notBlocked());
             })
             ->with('tags')->withCount('children')
             ->orderByRaw('due_date is null')
@@ -50,6 +53,7 @@ class ViewController extends Controller
 
         $tasks = $request->user()->tasks()
             ->where('status', 'todo')
+            ->inActiveProject()
             ->whereNotNull('due_date')
             ->whereDate('due_date', '<=', $limit)
             ->with('tags')->withCount('children')
@@ -73,6 +77,7 @@ class ViewController extends Controller
         $tasks = $request->user()->tasks()
             ->where('flagged', true)
             ->where('status', 'todo')
+            ->inActiveProject()
             ->with('tags')->withCount('children')
             ->orderBy('position')
             ->get();
@@ -131,16 +136,17 @@ class ViewController extends Controller
 
         // Counts mirror what the lists actually show — deferred (future start
         // date) tasks are excluded by default via the available() scope.
-        $today = $user->tasks()->available($todayDate)
-            ->where(fn ($q) => $q->whereDate('due_date', '<=', $todayDate)->orWhere('flagged', true))
+        $today = $user->tasks()->available($todayDate)->inActiveProject()
+            ->where(fn ($q) => $q->whereDate('due_date', '<=', $todayDate)
+                ->orWhere(fn ($f) => $f->where('flagged', true)->notBlocked()))
             ->count();
 
-        $overdue = $user->tasks()->available($todayDate)
+        $overdue = $user->tasks()->available($todayDate)->inActiveProject()
             ->whereNotNull('due_date')
             ->whereDate('due_date', '<', $todayDate)
             ->count();
 
-        $flagged = $user->tasks()->available($todayDate)->where('flagged', true)->count();
+        $flagged = $user->tasks()->available($todayDate)->inActiveProject()->where('flagged', true)->count();
 
         $inbox = $user->tasks()->available($todayDate)
             ->whereNull('project_id')->whereNull('parent_id')->count();

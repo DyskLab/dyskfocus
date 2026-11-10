@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Http\Resources\TaskResource;
 use App\Models\Task;
+use App\Observers\SyncObserver;
 use App\Services\Priority;
+use App\Services\Recurrence;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
@@ -39,7 +41,7 @@ class TaskController extends Controller
         }
         if ($request->filled('availability')) {
             match ($request->availability) {
-                'available' => $query->available($request->user()->todayDate()),
+                'available' => $query->actionable($request->user()->todayDate()),
                 'remaining' => $query->where('status', 'todo'),
                 'completed' => $query->where('status', 'done'),
                 default => null,
@@ -58,8 +60,7 @@ class TaskController extends Controller
             $query->whereDate('due_date', '>=', $request->due_after);
         }
         if ($request->filled('search')) {
-            $s = $request->search;
-            $query->where(fn ($q) => $q->where('title', 'like', "%{$s}%")->orWhere('note', 'like', "%{$s}%"));
+            $query->search((string) $request->search);
         }
 
         match ($request->query('sort', 'manual')) {
@@ -101,7 +102,17 @@ class TaskController extends Controller
 
         $data = $this->validateData($request, false);
 
-        $task->update(Arr::except($data, ['tag_ids']));
+        if (array_key_exists('parent_id', $data) && $data['parent_id'] !== null
+            && $this->wouldCreateCycle($task->id, (int) $data['parent_id'])) {
+            abort(422, 'A task cannot be nested under itself or one of its subtasks.');
+        }
+
+        $task->fill(Arr::except($data, ['tag_ids']));
+        // A rescheduled task should be able to notify again for its new due date.
+        if ($task->isDirty('due_date')) {
+            $task->due_notified_at = null;
+        }
+        $task->save();
 
         if (array_key_exists('tag_ids', $data)) {
             $task->tags()->sync($data['tag_ids']);
@@ -121,6 +132,8 @@ class TaskController extends Controller
     /** Apply a bulk action to many tasks at once. */
     public function bulk(Request $request)
     {
+        $userId = $request->user()->id;
+
         $data = $request->validate([
             'ids' => 'required|array',
             'ids.*' => 'integer',
@@ -128,13 +141,24 @@ class TaskController extends Controller
             'value' => 'nullable',
         ]);
 
-        $userId = $request->user()->id;
+        // The value refers to another record for these actions — it must be the user's own.
+        if ($data['action'] === 'project') {
+            $request->validate(['value' => ['nullable', 'integer', Rule::exists('projects', 'id')->where('user_id', $userId)]]);
+        } elseif ($data['action'] === 'tag') {
+            $request->validate(['value' => ['required', 'integer', Rule::exists('tags', 'id')->where('user_id', $userId)]]);
+        }
         $base = fn () => Task::query()->where('user_id', $userId)->whereIn('id', $data['ids']);
         $value = $data['value'] ?? null;
 
         switch ($data['action']) {
             case 'complete':
-                $base()->update(['status' => 'done', 'completed_at' => now()]);
+                // Go through the model so repeating tasks spawn their next occurrence.
+                foreach ($base()->where('status', '!=', 'done')->get() as $task) {
+                    $task->update(['status' => 'done', 'completed_at' => now()]);
+                    if ($task->repeat_rule) {
+                        Recurrence::spawnNext($task);
+                    }
+                }
                 break;
             case 'uncomplete':
                 $base()->update(['status' => 'todo', 'completed_at' => null]);
@@ -149,7 +173,8 @@ class TaskController extends Controller
                 $base()->update(['priority' => in_array($value, ['none', 'low', 'medium', 'high'], true) ? $value : 'none']);
                 break;
             case 'color':
-                $base()->update(['color' => $value ?: null]);
+                $colors = ['red', 'orange', 'amber', 'green', 'teal', 'sky', 'blue', 'violet', 'pink'];
+                $base()->update(['color' => in_array($value, $colors, true) ? $value : null]);
                 break;
             case 'flag':
                 $base()->update(['flagged' => (bool) $value]);
@@ -165,6 +190,9 @@ class TaskController extends Controller
                 }
                 break;
         }
+
+        // Query-builder writes skip model observers — notify other tabs/devices.
+        SyncObserver::bumpUser($userId);
 
         return response()->noContent();
     }
@@ -186,6 +214,7 @@ class TaskController extends Controller
         $this->authorizeOwner($task, $request);
 
         $completed = $request->boolean('completed', true);
+        $wasDone = $task->status === 'done';
 
         $task->update([
             'status' => $completed ? 'done' : 'todo',
@@ -193,8 +222,10 @@ class TaskController extends Controller
         ]);
 
         // Repeating task → schedule the next occurrence.
-        if ($completed && $task->repeat_rule) {
-            \App\Services\Recurrence::spawnNext($task);
+        // Only on a real todo → done transition, so a double click or a
+        // re-tick of an already-done task doesn't spawn duplicates.
+        if ($completed && ! $wasDone && $task->repeat_rule) {
+            Recurrence::spawnNext($task);
         }
 
         return new TaskResource($task->fresh(['tags'])->loadCount('children'));
@@ -205,13 +236,21 @@ class TaskController extends Controller
      */
     public function reorder(Request $request)
     {
+        $userId = $request->user()->id;
+
         $data = $request->validate([
             'items' => 'required|array',
-            'items.*.id' => ['required', 'integer', Rule::exists('tasks', 'id')->where('user_id', $request->user()->id)],
+            'items.*.id' => ['required', 'integer', Rule::exists('tasks', 'id')->where('user_id', $userId)],
             'items.*.position' => 'required|integer',
-            'items.*.project_id' => 'sometimes|nullable|integer',
-            'items.*.parent_id' => 'sometimes|nullable|integer',
+            'items.*.project_id' => ['sometimes', 'nullable', 'integer', Rule::exists('projects', 'id')->where('user_id', $userId)],
+            'items.*.parent_id' => ['sometimes', 'nullable', 'integer', Rule::exists('tasks', 'id')->where('user_id', $userId)],
         ]);
+
+        foreach ($data['items'] as $item) {
+            if (! empty($item['parent_id']) && $this->wouldCreateCycle((int) $item['id'], (int) $item['parent_id'])) {
+                abort(422, 'A task cannot be nested under itself or one of its subtasks.');
+            }
+        }
 
         foreach ($data['items'] as $item) {
             $update = ['position' => $item['position']];
@@ -223,11 +262,30 @@ class TaskController extends Controller
             }
 
             Task::where('id', $item['id'])
-                ->where('user_id', $request->user()->id)
+                ->where('user_id', $userId)
                 ->update($update);
         }
 
+        SyncObserver::bumpUser($userId);
+
         return response()->noContent();
+    }
+
+    /** True when making $parentId the parent of $taskId would form a loop. */
+    private function wouldCreateCycle(int $taskId, int $parentId): bool
+    {
+        $seen = [];
+        $current = $parentId;
+        while ($current !== null && ! isset($seen[$current])) {
+            if ($current === $taskId) {
+                return true;
+            }
+            $seen[$current] = true;
+            $current = Task::withTrashed()->whereKey($current)->value('parent_id');
+            $current = $current === null ? null : (int) $current;
+        }
+
+        return false;
     }
 
     private function validateData(Request $request, bool $creating = true): array

@@ -39,7 +39,16 @@ class SyncObserver
             return;
         }
 
-        $key = self::versionKey((int) $userId);
+        self::bumpUser((int) $userId);
+    }
+
+    /**
+     * Bump a user's sync version directly. Query-builder writes (bulk update,
+     * reorder, import) skip model events, so callers use this afterwards.
+     */
+    public static function bumpUser(int $userId): void
+    {
+        $key = self::versionKey($userId);
         // get+put keeps this store-agnostic; the value only needs to change.
         Cache::put($key, ((int) Cache::get($key, 0)) + 1, now()->addDay());
     }

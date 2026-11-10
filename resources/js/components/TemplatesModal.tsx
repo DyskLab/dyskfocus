@@ -19,7 +19,7 @@ export default function TemplatesModal({ onClose }: { onClose: () => void }) {
       >
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 px-5 py-3">
           <h2 className="text-sm font-semibold">Project templates</h2>
-          <button onClick={onClose} className="rounded p-1 text-slate-400 hover:text-slate-600">
+          <button onClick={onClose} className="rounded p-1 text-slate-400 hover:text-slate-600" aria-label="Close">
             <X size={16} />
           </button>
         </div>

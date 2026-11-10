@@ -40,7 +40,7 @@ class SetupController extends Controller
         ));
     }
 
-    /** @return array{migrated: bool, has_users: bool, needs_setup: bool} */
+    /** @return array{migrated: bool, has_users: bool, needs_setup: bool, registration_open: bool} */
     private function state(): array
     {
         $migrated = false;
@@ -59,6 +59,7 @@ class SetupController extends Controller
             'migrated' => $migrated,
             'has_users' => $hasUsers,
             'needs_setup' => ! $hasUsers, // setup runs until the first account exists
+            'registration_open' => ! $hasUsers || (bool) config('app.allow_registration'),
         ];
     }
 

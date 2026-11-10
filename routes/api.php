@@ -15,10 +15,13 @@ use App\Http\Controllers\ViewController;
 use Illuminate\Support\Facades\Route;
 
 // Public auth endpoints (stateful, CSRF-protected via Sanctum SPA).
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
-Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
-Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+// Throttled per IP to slow down brute-force and reset-mail spam.
+Route::middleware('throttle:10,1')->group(function () {
+    Route::post('/register', [AuthController::class, 'register']);
+    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+});
+Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:5,1');
 
 Route::middleware('auth:sanctum')->group(function () {
     // Session / account

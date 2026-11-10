@@ -52,6 +52,7 @@ class Recurrence
         $next = $task->replicate();
         $next->status = 'todo';
         $next->completed_at = null;
+        $next->due_notified_at = null; // the new occurrence must be able to notify
         $next->defer_date = $advance($task->defer_date);
         $next->due_date = $advance($task->due_date);
 

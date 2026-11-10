@@ -16,8 +16,8 @@ return new class extends Migration
             $table->string('auth_token');    // auth
             $table->string('content_encoding')->default('aes128gcm');
             $table->timestamps();
-
-            $table->unique(['user_id', 'endpoint'], 'push_sub_user_endpoint_unique');
+            // Uniqueness lives on endpoint_hash (see 2026_11_10_120000): MySQL
+            // can't put a TEXT column in a unique index.
         });
     }
 

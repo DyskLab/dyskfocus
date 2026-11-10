@@ -1,5 +1,9 @@
 // Minimal service worker to make DyskFocus an installable PWA (webview-ready).
-const CACHE = 'dyskfocus-v2'
+const CACHE = 'dyskfocus-v3'
+// The SPA shell: any navigation can be served by it when offline.
+const SHELL = '/'
+// Keep at most this many cached navigations/misc entries (build assets excluded).
+const MAX_PAGES = 30
 
 self.addEventListener('install', () => self.skipWaiting())
 
@@ -27,12 +31,15 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const target = (event.notification.data && event.notification.data.url) || '/'
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
-      for (const client of clients) {
-        if ('focus' in client) {
-          client.navigate(target)
-          return client.focus()
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clients) => {
+      const client = clients.find((c) => 'focus' in c)
+      if (client) {
+        // navigate() only works on controlled clients and rejects otherwise —
+        // still focus the existing window rather than failing silently.
+        if (client.url !== new URL(target, location.origin).href && 'navigate' in client) {
+          await client.navigate(target).catch(() => {})
         }
+        return client.focus()
       }
       if (self.clients.openWindow) return self.clients.openWindow(target)
     })
@@ -65,7 +72,8 @@ self.addEventListener('fetch', (event) => {
           (hit) =>
             hit ||
             fetch(request).then((res) => {
-              cache.put(request, res.clone())
+              // Never pin an error/redirect page under an immutable asset URL.
+              if (res.ok && res.type === 'basic') cache.put(request, res.clone())
               return res
             })
         )
@@ -75,13 +83,25 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Navigations & everything else → network-first, fall back to cache when offline.
+  const isNavigation = request.mode === 'navigate'
   event.respondWith(
     fetch(request)
       .then((res) => {
-        const copy = res.clone()
-        caches.open(CACHE).then((cache) => cache.put(request, copy))
+        if (res.ok && res.type === 'basic') {
+          const copy = res.clone()
+          // Every SPA route returns the same shell, so store navigations under one key.
+          const key = isNavigation ? SHELL : request
+          event.waitUntil(caches.open(CACHE).then((cache) => cache.put(key, copy)).then(trimCache))
+        }
         return res
       })
-      .catch(() => caches.match(request))
+      .catch(async () => (await caches.match(isNavigation ? SHELL : request)) || (await caches.match(request)) || Response.error())
   )
 })
+
+/** Drop the oldest non-build entries so the cache can't grow without bound. */
+async function trimCache() {
+  const cache = await caches.open(CACHE)
+  const keys = (await cache.keys()).filter((r) => !new URL(r.url).pathname.startsWith('/build/'))
+  for (const req of keys.slice(0, Math.max(0, keys.length - MAX_PAGES))) await cache.delete(req)
+}

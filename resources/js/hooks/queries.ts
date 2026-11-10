@@ -29,6 +29,8 @@ function patchTaskEverywhere(qc: QueryClient, id: number, patch: Partial<Task>) 
     const data = q.state.data as unknown
     if (data == null) continue
     const k0 = key[0]
+    // These views hold projects (or a grouped object), not task arrays.
+    if (k0 === 'view' && (key[1] === 'review' || key[1] === 'by-project')) continue
 
     if (k0 === 'view' && key[1] === 'forecast' && typeof data === 'object') {
       const groups = data as Record<string, Task[]>
@@ -58,6 +60,7 @@ function invalidateTaskData(qc: QueryClient) {
   qc.invalidateQueries({ queryKey: ['project'] })
   qc.invalidateQueries({ queryKey: ['perspective-tasks'] })
   qc.invalidateQueries({ queryKey: ['tags'] })
+  qc.invalidateQueries({ queryKey: ['search'] })
   qc.invalidateQueries({ queryKey: ['counts'] })
 }
 
@@ -113,14 +116,20 @@ export function useCompleteTask() {
       withCsrf(async () => unwrap<Task>((await api.post(`/tasks/${id}/complete`, { completed })).data)),
     // Optimistically strike the task through in place (keep it visible so it can
     // be undone). It only leaves the list on the next refetch (navigation/refresh).
-    onMutate: ({ id, completed }) => {
+    onMutate: async ({ id, completed }) => {
+      // Stop in-flight refetches from overwriting the optimistic patch.
+      await qc.cancelQueries({ predicate: (q) => q.queryKey[0] !== 'counts' })
       patchTaskEverywhere(qc, id, {
         status: completed ? 'done' : 'todo',
         completed_at: completed ? new Date().toISOString() : null,
       })
     },
     onError: () => invalidateTaskData(qc),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['counts'] }),
+    onSuccess: (task, { completed }) => {
+      // A completed repeating task spawned its next occurrence — show it now.
+      if (completed && task?.repeat_rule) invalidateTaskData(qc)
+      else qc.invalidateQueries({ queryKey: ['counts'] })
+    },
   })
 }
 
@@ -245,10 +254,8 @@ export function useArchiveProject() {
       withCsrf(async () =>
         unwrap<Project>((await api.post(`/projects/${id}/${archived ? 'archive' : 'unarchive'}`)).data)
       ),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['projects'] })
-      qc.invalidateQueries({ queryKey: ['project'] })
-    },
+    // Archiving hides/shows the project's tasks in the built-in views and counts.
+    onSuccess: () => invalidateTaskData(qc),
   })
 }
 
@@ -277,7 +284,8 @@ export function useDeleteProject() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: number) => withCsrf(async () => api.delete(`/projects/${id}`)),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['projects'] }),
+    // Its tasks move/disappear across every view, so refresh all task data.
+    onSuccess: () => invalidateTaskData(qc),
   })
 }
 
@@ -409,10 +417,8 @@ export function useDeleteTag() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: number) => withCsrf(async () => api.delete(`/tags/${id}`)),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['tags'] })
-      qc.invalidateQueries({ queryKey: ['tasks'] })
-    },
+    // Drop the deleted tag's chips from every cached task list.
+    onSuccess: () => invalidateTaskData(qc),
   })
 }
 

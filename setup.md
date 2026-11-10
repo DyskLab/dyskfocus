@@ -42,6 +42,8 @@ Key settings (already set for DDEV):
 
 Optional features:
 
+- **More accounts** — after the first account is created, sign-up is closed.
+  Set `ALLOW_REGISTRATION=true` to let other people register on the same instance.
 - **Push notifications** — generate VAPID keys and add them to `.env`:
   ```bash
   php artisan tinker --execute="print_r(Minishlink\WebPush\VAPID::createVapidKeys());"

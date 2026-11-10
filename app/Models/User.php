@@ -38,7 +38,7 @@ class User extends Authenticatable
     {
         $tz = data_get($this->settings, 'timezone');
 
-        return is_string($tz) && in_array($tz, timezone_identifiers_list(), true)
+        return is_string($tz) && in_array($tz, \DateTimeZone::listIdentifiers(\DateTimeZone::ALL_WITH_BC), true)
             ? $tz
             : config('app.timezone', 'UTC');
     }

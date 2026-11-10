@@ -40,6 +40,7 @@ function Chip({ task, onOpen }: { task: Task; onOpen: (id: number) => void }) {
       ref={setNodeRef}
       {...listeners}
       {...attributes}
+      aria-label={`Open task: ${task.title}`}
       onClick={(e) => {
         e.stopPropagation()
         onOpen(task.id)
@@ -79,8 +80,19 @@ function DayCell({
   return (
     <div
       ref={setNodeRef}
+      role="button"
+      tabIndex={0}
+      aria-pressed={selected}
+      aria-label={`${format(day, 'EEEE, d MMMM yyyy')}${dayTasks.length ? `, ${dayTasks.length} task${dayTasks.length > 1 ? 's' : ''}` : ''}`}
       onClick={() => onSelect(day)}
-      className={`min-h-[64px] cursor-pointer border-b border-r border-slate-100 dark:border-slate-800 p-1.5 align-top last:border-r-0 sm:min-h-[84px] ${
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return // keys on a chip belong to the chip
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onSelect(day)
+        }
+      }}
+      className={`min-h-[64px] focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand cursor-pointer border-b border-r border-slate-100 dark:border-slate-800 p-1.5 align-top last:border-r-0 sm:min-h-[84px] ${
         inMonth ? '' : 'bg-slate-50/60 dark:bg-slate-950/40'
       } ${selected ? 'ring-2 ring-inset ring-brand' : ''} ${isOver ? 'bg-brand/10' : ''}`}
     >
@@ -219,13 +231,15 @@ export default function CalendarView() {
         ) : (
           <ul className="divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
             {selectedTasks.map((t) => (
-              <li
-                key={t.id}
-                onClick={() => setSelectedTask(t.id)}
-                className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-800/50"
-              >
-                {t.priority !== 'none' && <span className={`h-2 w-2 shrink-0 rounded-full ${PRIORITY_META[t.priority].dot}`} />}
-                <span className={t.status === 'done' ? 'text-slate-400 line-through' : ''}>{t.title}</span>
+              <li key={t.id}>
+                <button
+                  type="button"
+                  onClick={() => setSelectedTask(t.id)}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                >
+                  {t.priority !== 'none' && <span className={`h-2 w-2 shrink-0 rounded-full ${PRIORITY_META[t.priority].dot}`} />}
+                  <span className={t.status === 'done' ? 'text-slate-400 line-through' : ''}>{t.title}</span>
+                </button>
               </li>
             ))}
           </ul>

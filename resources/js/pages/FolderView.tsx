@@ -31,7 +31,7 @@ export default function FolderView() {
             <button
               onClick={addProject}
               className="rounded p-1.5 text-slate-400 hover:text-brand"
-              title="Add project"
+              title="Add project" aria-label="Add project"
             >
               <Plus size={16} />
             </button>

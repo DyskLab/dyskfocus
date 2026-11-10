@@ -125,7 +125,7 @@ export default function TaskRow({
             {...sortable.listeners}
             {...sortable.attributes}
             className="cursor-grab text-slate-300 opacity-40 group-hover:opacity-100"
-            title="Drag"
+            title="Drag" aria-label="Drag"
           >
             <GripVertical size={14} />
           </button>

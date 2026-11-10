@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\PushSubscription;
 use Illuminate\Http\Request;
 
 class PushSubscriptionController extends Controller
@@ -25,8 +26,9 @@ class PushSubscriptionController extends Controller
         ]);
 
         $sub = $request->user()->pushSubscriptions()->updateOrCreate(
-            ['endpoint' => $data['endpoint']],
+            ['endpoint_hash' => PushSubscription::hashEndpoint($data['endpoint'])],
             [
+                'endpoint' => $data['endpoint'],
                 'public_key' => $data['keys']['p256dh'],
                 'auth_token' => $data['keys']['auth'],
                 'content_encoding' => $data['contentEncoding'] ?? 'aes128gcm',
@@ -43,7 +45,7 @@ class PushSubscriptionController extends Controller
             'endpoint' => ['required', 'string'],
         ]);
 
-        $request->user()->pushSubscriptions()->where('endpoint', $data['endpoint'])->delete();
+        $request->user()->pushSubscriptions()->where('endpoint_hash', PushSubscription::hashEndpoint($data['endpoint']))->delete();
 
         return response()->noContent();
     }

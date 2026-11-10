@@ -72,6 +72,20 @@ class Task extends Model
     }
 
     /**
+     * Case-insensitive literal search in title + note. LIKE wildcards in the
+     * input are escaped with "!" (portable across SQLite, MySQL and Postgres).
+     */
+    public function scopeSearch(Builder $query, string $term): Builder
+    {
+        $pattern = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $term).'%';
+
+        return $query->where(function (Builder $q) use ($pattern) {
+            $q->whereRaw("title LIKE ? ESCAPE '!'", [$pattern])
+                ->orWhereRaw("note LIKE ? ESCAPE '!'", [$pattern]);
+        });
+    }
+
+    /**
      * "Available" = actionable now: not completed/dropped and defer date has arrived.
      * Pass $today (Y-m-d in the user's timezone) for timezone-correct comparisons.
      */
@@ -83,5 +97,51 @@ class Task extends Model
             ->where(function (Builder $q) use ($today) {
                 $q->whereNull('defer_date')->orWhereDate('defer_date', '<=', $today);
             });
+    }
+
+    /**
+     * Only tasks whose project is live: in the Inbox, or in a project that is
+     * active and not archived. On-hold / done / dropped / archived projects
+     * keep their tasks out of Today, Flagged, Forecast and the badge counts.
+     */
+    public function scopeInActiveProject(Builder $query): Builder
+    {
+        return $query->where(function (Builder $q) {
+            $q->whereNull('tasks.project_id')
+                ->orWhereHas('project', fn (Builder $p) => $p->where('status', 'active')->whereNull('archived_at'));
+        });
+    }
+
+    /**
+     * Not blocked by a sequential project: in a sequential project only the
+     * first remaining top-level task (by position, then id) can be worked on.
+     */
+    public function scopeNotBlocked(Builder $query): Builder
+    {
+        return $query->whereNot(function (Builder $q) {
+            $q->whereNull('tasks.parent_id')
+                ->whereHas('project', fn (Builder $p) => $p->where('type', 'sequential'))
+                ->whereExists(function ($prev) {
+                    $prev->selectRaw('1')
+                        ->from('tasks as prev')
+                        ->whereColumn('prev.project_id', 'tasks.project_id')
+                        ->whereNull('prev.parent_id')
+                        ->whereNull('prev.deleted_at')
+                        ->where('prev.status', 'todo')
+                        ->where(function ($o) {
+                            $o->whereColumn('prev.position', '<', 'tasks.position')
+                                ->orWhere(function ($t) {
+                                    $t->whereColumn('prev.position', 'tasks.position')
+                                        ->whereColumn('prev.id', '<', 'tasks.id');
+                                });
+                        });
+                });
+        });
+    }
+
+    /** Truly actionable now: available, in a live project, and not blocked. */
+    public function scopeActionable(Builder $query, ?string $today = null): Builder
+    {
+        return $query->available($today)->inActiveProject()->notBlocked();
     }
 }

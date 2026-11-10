@@ -8,22 +8,33 @@ export interface ParsedQuickAdd {
   priority?: 'high' | 'medium' | 'low'
 }
 
+/** Full weekday names — unambiguous, recognised anywhere in the text. */
 const WEEKDAYS: Record<string, Day> = {
-  sunday: 0, sun: 0, minggu: 0, ahad: 0,
-  monday: 1, mon: 1, senin: 1,
-  tuesday: 2, tue: 2, selasa: 2,
-  wednesday: 3, wed: 3, rabu: 3,
-  thursday: 4, thu: 4, kamis: 4,
-  friday: 5, fri: 5, jumat: 5, "jum'at": 5,
-  saturday: 6, sat: 6, sabtu: 6,
+  sunday: 0, ahad: 0,
+  monday: 1, senin: 1,
+  tuesday: 2, selasa: 2,
+  wednesday: 3, rabu: 3,
+  thursday: 4, kamis: 4,
+  friday: 5, jumat: 5, "jum'at": 5,
+  saturday: 6, sabtu: 6,
 }
+
+/**
+ * Short forms collide with ordinary words ("sun cream", "sat down", "wed"),
+ * so they only count after "next"/"on" or as the very last word.
+ */
+const WEEKDAY_ABBR: Record<string, Day> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 }
+
+/** End of a word: whitespace or punctuation — unlike \b, "today's" is not a match. */
+const END = `(?=[\\s,.;:!?)]|$)`
 
 /**
  * Parse a quick-add string into task fields.
  *  - `#tag`  → matches an existing tag (by name, case-insensitive)
  *  - `!high|!med|!low` (or `!h/!m/!l`) → priority
  *  - dates: today/hari ini, tomorrow/besok, lusa, weekday names (EN/ID),
- *    "next monday" / "senin depan", "in N days" / "N hari lagi"
+ *    "next monday" / "senin depan", "in N days" / "N hari lagi",
+ *    "in N weeks" / "N minggu lagi", "next week" / "minggu depan"
  *  - times (5pm, 17:00) are stripped (only dates are stored)
  */
 export function parseQuickAdd(input: string, tags: Tag[] = []): ParsedQuickAdd {
@@ -55,17 +66,30 @@ export function parseQuickAdd(input: string, tags: Tag[] = []): ParsedQuickAdd {
   const today = new Date()
   let due: Date | null = null
 
-  let m = text.match(/\sin (\d+) days?\b/i) ?? text.match(/\s(\d+) hari(?: lagi)?\b/i)
-  if (m) {
-    due = addDays(today, parseInt(m[1], 10))
-    text = text.replace(m[0], ' ')
+  const rel: [RegExp, number][] = [
+    [new RegExp(`\\sin (\\d+) days?${END}`, 'i'), 1],
+    [new RegExp(`\\s(\\d+) hari(?: lagi)?${END}`, 'i'), 1],
+    [new RegExp(`\\sin (\\d+) weeks?${END}`, 'i'), 7],
+    // Indonesian "minggu" also means "week": "2 minggu lagi" = in 2 weeks.
+    [new RegExp(`\\s(\\d+) minggu(?: lagi)?${END}`, 'i'), 7],
+  ]
+  for (const [re, unit] of rel) {
+    const m = text.match(re)
+    if (m) {
+      due = addDays(today, parseInt(m[1], 10) * unit)
+      text = text.replace(m[0], ' ')
+      break
+    }
   }
 
   if (!due) {
     const words: [RegExp, () => Date][] = [
-      [/\s(today|hari ini)\b/i, () => today],
-      [/\s(tomorrow|besok|bsk|esok)\b/i, () => addDays(today, 1)],
-      [/\s(lusa|day after tomorrow)\b/i, () => addDays(today, 2)],
+      [new RegExp(`\\s(today|hari ini)${END}`, 'i'), () => today],
+      [new RegExp(`\\s(day after tomorrow|lusa)${END}`, 'i'), () => addDays(today, 2)],
+      [new RegExp(`\\s(tomorrow|besok|bsk|esok)${END}`, 'i'), () => addDays(today, 1)],
+      [new RegExp(`\\s(next week|minggu depan|pekan depan)${END}`, 'i'), () => addDays(today, 7)],
+      // "hari minggu" = Sunday (bare "minggu" is too ambiguous: week vs Sunday).
+      [new RegExp(`\\shari minggu${END}`, 'i'), () => nextDay(today, 0)],
     ]
     for (const [re, fn] of words) {
       const mm = text.match(re)
@@ -79,19 +103,26 @@ export function parseQuickAdd(input: string, tags: Tag[] = []): ParsedQuickAdd {
 
   if (!due) {
     const keys = Object.keys(WEEKDAYS).sort((a, b) => b.length - a.length)
-    const group = keys.map((k) => k.replace("'", "\\'")).join('|')
+    const group = keys.join('|')
+    const abbr = Object.keys(WEEKDAY_ABBR).join('|')
+    const dayOf = (w: string) => WEEKDAYS[w.toLowerCase()] ?? WEEKDAY_ABBR[w.toLowerCase().replace(/\.$/, '')]
     // Indonesian: "senin depan"
-    const idNext = text.match(new RegExp(`\\s(${group})\\s+depan\\b`, 'i'))
-    // English/short: "[next] monday"
-    const en = text.match(new RegExp(`\\s(next\\s+)?(${group})\\b`, 'i'))
+    const idNext = text.match(new RegExp(`\\s(${group})\\s+depan${END}`, 'i'))
+    // English: "[next] monday"
+    const en = text.match(new RegExp(`\\s(next\\s+)?(${group})${END}`, 'i'))
+    // Short: "next fri" / "on fri" / "... fri" at the very end
+    const short =
+      text.match(new RegExp(`\\s(next\\s+|on\\s+)(${abbr})\\.?${END}`, 'i')) ??
+      text.match(new RegExp(`\\s()(${abbr})\\.?\\s*$`, 'i'))
     if (idNext) {
-      due = addDays(nextDay(today, WEEKDAYS[idNext[1].toLowerCase()]), 7)
+      due = addDays(nextDay(today, dayOf(idNext[1])), 7)
       text = text.replace(idNext[0], ' ')
-    } else if (en) {
-      let d = nextDay(today, WEEKDAYS[en[2].toLowerCase()])
-      if (en[1]) d = addDays(d, 7)
+    } else if (en ?? short) {
+      const hit = (en ?? short)!
+      let d = nextDay(today, dayOf(hit[2]))
+      if (hit[1]?.trim().toLowerCase() === 'next') d = addDays(d, 7)
       due = d
-      text = text.replace(en[0], ' ')
+      text = text.replace(hit[0], ' ')
     }
   }
 

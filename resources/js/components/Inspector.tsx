@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { Eye, Flag, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { useUI } from '../store/ui'
@@ -42,13 +42,41 @@ export default function Inspector() {
   const [note, setNote] = useState('')
   const [comment, setComment] = useState('')
   const [subtitle, setSubtitle] = useState('')
+  // Which task the title/note state was filled from (state, so it updates in the same render).
+  const [hydratedFor, setHydratedFor] = useState<number | null>(null)
 
   useEffect(() => {
     if (task) {
       setTitle(task.title)
       setNote(task.note ?? '')
+      setHydratedFor(task.id)
     }
   }, [task?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Closing the Inspector (Esc, X, picking another task) must not silently
+  // drop an edited note/title — flush unsaved edits on unmount.
+  const draft = useRef({ id: selectedTaskId, loaded: false, title: '', note: '', origTitle: '', origNote: '' })
+  draft.current = {
+    id: selectedTaskId,
+    loaded: !!task && hydratedFor === task.id,
+    title,
+    note,
+    origTitle: task?.title ?? '',
+    origNote: task?.note ?? '',
+  }
+  const mutateRef = useRef(update.mutate)
+  mutateRef.current = update.mutate
+  useEffect(
+    () => () => {
+      const d = draft.current
+      if (!d.id || !d.loaded) return
+      const patch: Record<string, unknown> = {}
+      if (d.note !== d.origNote) patch.note = d.note
+      if (d.title.trim() && d.title !== d.origTitle) patch.title = d.title
+      if (Object.keys(patch).length) mutateRef.current({ id: d.id, ...patch })
+    },
+    [],
+  )
 
   if (!selectedTaskId) return null
 
@@ -132,7 +160,7 @@ export default function Inspector() {
           >
             <Trash2 size={16} />
           </button>
-          <button onClick={() => setSelectedTask(null)} className="rounded p-1.5 text-slate-400 hover:text-slate-600">
+          <button onClick={() => setSelectedTask(null)} className="rounded p-1.5 text-slate-400 hover:text-slate-600" aria-label="Close">
             <X size={16} />
           </button>
         </div>

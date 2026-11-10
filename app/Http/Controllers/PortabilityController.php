@@ -24,9 +24,9 @@ class PortabilityController extends Controller
             'version' => 1,
             'exported_at' => now()->toIso8601String(),
             'folders' => $user->folders()->get(['id', 'name', 'position']),
-            'tags' => $user->tags()->get(['id', 'name', 'parent_id', 'position']),
+            'tags' => $user->tags()->get(['id', 'name', 'color', 'parent_id', 'position']),
             'projects' => $user->projects()->get([
-                'id', 'folder_id', 'title', 'note', 'type', 'status', 'defer_date', 'due_date',
+                'id', 'folder_id', 'title', 'note', 'type', 'status', 'archived_at', 'defer_date', 'due_date',
                 'flagged', 'review_interval_days', 'last_reviewed_at', 'next_review_at', 'completed_at', 'position',
             ]),
             'tasks' => $user->tasks()->with('tags:id')->get()->map(fn (Task $t) => [
@@ -41,6 +41,7 @@ class PortabilityController extends Controller
                 'due_date' => $t->due_date?->toDateString(),
                 'flagged' => $t->flagged,
                 'priority' => $t->priority,
+                'color' => $t->color,
                 'estimated_minutes' => $t->estimated_minutes,
                 'repeat_rule' => $t->repeat_rule,
                 'position' => $t->position,
@@ -70,7 +71,9 @@ class PortabilityController extends Controller
         DB::transaction(function () use ($user, $data) {
             // Wipe existing data (cascades handle task_tag + comments on task delete).
             Comment::where('user_id', $user->id)->delete();
-            Task::where('user_id', $user->id)->delete();
+            // forceDelete: a soft delete would leave the old tasks (and their
+            // tag links/comments) behind in the trash after every import.
+            Task::withTrashed()->where('user_id', $user->id)->forceDelete();
             Project::where('user_id', $user->id)->delete();
             Folder::where('user_id', $user->id)->delete();
             Tag::where('user_id', $user->id)->delete();
@@ -84,7 +87,7 @@ class PortabilityController extends Controller
 
             $tagMap = [];
             foreach ($data['tags'] ?? [] as $t) {
-                $new = $user->tags()->create(['name' => $t['name'] ?? 'Tag', 'position' => $t['position'] ?? 0]);
+                $new = $user->tags()->create(['name' => $t['name'] ?? 'Tag', 'color' => $t['color'] ?? null, 'position' => $t['position'] ?? 0]);
                 $tagMap[$t['id']] = $new->id;
             }
             foreach ($data['tags'] ?? [] as $t) {
@@ -101,6 +104,7 @@ class PortabilityController extends Controller
                     'note' => $p['note'] ?? null,
                     'type' => $p['type'] ?? 'parallel',
                     'status' => $p['status'] ?? 'active',
+                    'archived_at' => $p['archived_at'] ?? null,
                     'defer_date' => $p['defer_date'] ?? null,
                     'due_date' => $p['due_date'] ?? null,
                     'flagged' => $p['flagged'] ?? false,
@@ -125,6 +129,7 @@ class PortabilityController extends Controller
                     'due_date' => $t['due_date'] ?? null,
                     'flagged' => $t['flagged'] ?? false,
                     'priority' => $t['priority'] ?? 'none',
+                    'color' => $t['color'] ?? null,
                     'estimated_minutes' => $t['estimated_minutes'] ?? null,
                     'repeat_rule' => $t['repeat_rule'] ?? null,
                     'position' => $t['position'] ?? 0,
@@ -176,6 +181,8 @@ class PortabilityController extends Controller
                 ]);
             }
         });
+
+        \App\Observers\SyncObserver::bumpUser($user->id);
 
         return response()->noContent();
     }

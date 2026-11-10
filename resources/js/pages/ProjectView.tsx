@@ -107,7 +107,7 @@ export default function ProjectView() {
                 <button
                   onClick={toggleNote}
                   className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-400 hover:text-brand"
-                  title={noteCollapsed ? 'Expand note' : 'Collapse note'}
+                  title={noteCollapsed ? 'Expand note' : 'Collapse note'} aria-label={noteCollapsed ? 'Expand note' : 'Collapse note'}
                 >
                   {noteCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />} Note
                 </button>

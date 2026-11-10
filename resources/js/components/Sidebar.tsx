@@ -89,7 +89,7 @@ export default function Sidebar({ onNavigate, forceFull = false }: { onNavigate?
             <button
               {...handle}
               className="cursor-grab touch-none text-slate-300 opacity-0 group-hover/row:opacity-100"
-              title="Drag to reorder"
+              title="Drag to reorder" aria-label="Drag to reorder"
             >
               <GripVertical size={12} />
             </button>
@@ -142,7 +142,7 @@ export default function Sidebar({ onNavigate, forceFull = false }: { onNavigate?
       >
         <button
           onClick={toggleSidebar}
-          title="Expand sidebar"
+          title="Expand sidebar" aria-label="Expand sidebar"
           className="mb-1 rounded-lg p-1.5 hover:bg-slate-200/60 dark:hover:bg-slate-800"
         >
           <Logo size={22} />
@@ -165,7 +165,7 @@ export default function Sidebar({ onNavigate, forceFull = false }: { onNavigate?
         <div className="mt-auto flex flex-col items-center gap-2">
           <button
             onClick={toggleSidebar}
-            title="Expand sidebar"
+            title="Expand sidebar" aria-label="Expand sidebar"
             className="rounded-lg p-2 text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800"
           >
             <PanelLeftOpen size={18} />
@@ -191,7 +191,7 @@ export default function Sidebar({ onNavigate, forceFull = false }: { onNavigate?
         {!forceFull && (
           <button
             onClick={toggleSidebar}
-            title="Collapse sidebar"
+            title="Collapse sidebar" aria-label="Collapse sidebar"
             className="ml-auto rounded-lg p-1.5 text-slate-400 hover:bg-slate-200/60 hover:text-brand dark:hover:bg-slate-800"
           >
             <PanelLeftClose size={16} />
@@ -257,14 +257,14 @@ export default function Sidebar({ onNavigate, forceFull = false }: { onNavigate?
                 </NavLink>
               )}
               <button
-                title="Project templates"
+                title="Project templates" aria-label="Project templates"
                 onClick={() => setTemplatesOpen(true)}
                 className="text-slate-400 hover:text-brand"
               >
                 <LayoutTemplate size={14} />
               </button>
               <button
-                title="New folder"
+                title="New folder" aria-label="New folder"
                 onClick={async () => {
                   const name = await showPrompt({ title: 'New folder', label: 'Folder name', confirmText: 'Create' })
                   if (name) createFolder.mutate(name)
@@ -304,7 +304,7 @@ export default function Sidebar({ onNavigate, forceFull = false }: { onNavigate?
                         <button
                           {...handle}
                           className="cursor-grab touch-none text-slate-300 opacity-0 group-hover/folder:opacity-100"
-                          title="Drag folder"
+                          title="Drag folder" aria-label="Drag folder"
                         >
                           <GripVertical size={12} />
                         </button>
@@ -507,7 +507,7 @@ function Section({
         </span>
         <div className="flex items-center gap-1">
           {extra}
-          <button onClick={onAdd} className="text-slate-400 hover:text-brand" title={`Add ${title}`}>
+          <button onClick={onAdd} className="text-slate-400 hover:text-brand" title={`Add ${title}`} aria-label={`Add ${title}`}>
             <Plus size={14} />
           </button>
         </div>

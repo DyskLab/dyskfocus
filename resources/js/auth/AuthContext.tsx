@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { api, ensureCsrf, unwrap } from '../lib/api'
+import { useQueryClient } from '@tanstack/react-query'
+import { api, ensureCsrf, setUnauthorizedHandler, unwrap } from '../lib/api'
+import { unsubscribeFromPush } from '../lib/push'
 import type { User } from '../lib/types'
 import { useUI } from '../store/ui'
 
@@ -18,6 +20,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const setTheme = useUI((s) => s.setTheme)
+  const queryClient = useQueryClient()
 
   function adoptUser(u: User | null) {
     setUser(u)
@@ -34,10 +37,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Session expired / revoked: forget the user and every cached list.
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      setUser(null)
+      queryClient.clear()
+    })
+    return () => setUnauthorizedHandler(null)
+  }, [queryClient])
+
   // Keep the server in sync with the browser's timezone (for correct due/today math).
   useEffect(() => {
     if (!user) return
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+    const tz = canonicalTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone)
     if (tz && user.settings?.timezone !== tz) {
       updateSettings({ timezone: tz }).catch(() => {})
     }
@@ -47,6 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function login(email: string, password: string, remember: boolean) {
     await ensureCsrf()
     const { data } = await api.post('/login', { email, password, remember })
+    queryClient.clear() // never show a previous account's cached data
     adoptUser(unwrap<User>(data))
   }
 
@@ -62,9 +75,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function logout() {
-    await ensureCsrf()
-    await api.post('/logout')
-    setUser(null)
+    // Stop this browser receiving the account's push notifications.
+    await unsubscribeFromPush().catch(() => {})
+    try {
+      await ensureCsrf()
+      await api.post('/logout')
+    } catch {
+      // Even if the request fails (e.g. session already gone), sign out locally.
+    } finally {
+      queryClient.clear()
+      setUser(null)
+    }
   }
 
   async function updateSettings(settings: Record<string, unknown>) {
@@ -78,6 +99,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   )
+}
+
+/** Map legacy zone aliases (e.g. Asia/Calcutta) to their canonical name when the browser can. */
+function canonicalTimeZone(tz: string | undefined): string | undefined {
+  if (!tz) return tz
+  try {
+    return new Intl.DateTimeFormat('en-US', { timeZone: tz }).resolvedOptions().timeZone
+  } catch {
+    return tz
+  }
 }
 
 // eslint-disable-next-line react-refresh/only-export-components

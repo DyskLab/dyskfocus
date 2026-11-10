@@ -658,4 +658,173 @@ class TaskApiTest extends TestCase
         $task->delete();
         $this->assertGreaterThan($afterUpdate, (int) Cache::get($key, 0));
     }
+
+    public function test_bulk_and_reorder_cannot_point_at_another_users_records(): void
+    {
+        $user = User::factory()->create();
+        $other = User::factory()->create();
+        $mine = Task::factory()->for($user)->create();
+        $theirProject = Project::factory()->for($other)->create();
+        $theirTag = Tag::factory()->for($other)->create();
+        $theirTask = Task::factory()->for($other)->create();
+
+        $this->actingAs($user)->postJson('/api/tasks/bulk', ['ids' => [$mine->id], 'action' => 'project', 'value' => $theirProject->id])->assertUnprocessable();
+        $this->actingAs($user)->postJson('/api/tasks/bulk', ['ids' => [$mine->id], 'action' => 'tag', 'value' => $theirTag->id])->assertUnprocessable();
+        $this->actingAs($user)->postJson('/api/tasks/reorder', ['items' => [['id' => $mine->id, 'position' => 0, 'project_id' => $theirProject->id]]])->assertUnprocessable();
+        $this->actingAs($user)->postJson('/api/tasks/reorder', ['items' => [['id' => $mine->id, 'position' => 0, 'parent_id' => $theirTask->id]]])->assertUnprocessable();
+
+        $mine->refresh();
+        $this->assertNull($mine->project_id);
+        $this->assertNull($mine->parent_id);
+        $this->assertCount(0, $mine->tags);
+    }
+
+    public function test_a_task_cannot_be_nested_under_its_own_subtask(): void
+    {
+        $user = User::factory()->create();
+        $parent = Task::factory()->for($user)->create();
+        $child = Task::factory()->for($user)->create(['parent_id' => $parent->id]);
+
+        $this->actingAs($user)->putJson("/api/tasks/{$parent->id}", ['parent_id' => $child->id])->assertStatus(422);
+        $this->actingAs($user)->putJson("/api/tasks/{$parent->id}", ['parent_id' => $parent->id])->assertStatus(422);
+        $this->assertNull($parent->fresh()->parent_id);
+    }
+
+    public function test_completing_a_repeating_task_twice_spawns_only_one_occurrence(): void
+    {
+        $user = User::factory()->create();
+        $task = Task::factory()->for($user)->create([
+            'due_date' => '2026-01-01',
+            'repeat_rule' => ['frequency' => 'daily', 'interval' => 1],
+        ]);
+
+        $this->actingAs($user)->postJson("/api/tasks/{$task->id}/complete", ['completed' => true])->assertOk();
+        $this->actingAs($user)->postJson("/api/tasks/{$task->id}/complete", ['completed' => true])->assertOk();
+
+        $this->assertSame(2, $user->tasks()->count());
+    }
+
+    public function test_bulk_complete_spawns_next_occurrence_and_bumps_sync(): void
+    {
+        $user = User::factory()->create();
+        $task = Task::factory()->for($user)->create([
+            'due_date' => '2026-01-01',
+            'due_notified_at' => now(),
+            'repeat_rule' => ['frequency' => 'weekly', 'interval' => 1],
+        ]);
+        $key = SyncObserver::versionKey($user->id);
+        $before = (int) Cache::get($key, 0);
+
+        $this->actingAs($user)->postJson('/api/tasks/bulk', ['ids' => [$task->id], 'action' => 'complete'])->assertNoContent();
+
+        $next = $user->tasks()->where('status', 'todo')->first();
+        $this->assertNotNull($next);
+        $this->assertSame('2026-01-08', $next->due_date->toDateString());
+        $this->assertNull($next->due_notified_at, 'next occurrence must be able to notify again');
+        $this->assertGreaterThan($before, (int) Cache::get($key, 0));
+    }
+
+    public function test_rescheduling_a_task_resets_its_due_notification(): void
+    {
+        $user = User::factory()->create();
+        $task = Task::factory()->for($user)->create(['due_date' => '2026-01-01', 'due_notified_at' => now()]);
+
+        $this->actingAs($user)->putJson("/api/tasks/{$task->id}", ['due_date' => '2026-02-01'])->assertOk();
+
+        $this->assertNull($task->fresh()->due_notified_at);
+    }
+
+    public function test_search_treats_wildcards_literally(): void
+    {
+        $user = User::factory()->create();
+        Task::factory()->for($user)->create(['title' => '100% done', 'note' => null]);
+        Task::factory()->for($user)->create(['title' => '1000 things', 'note' => null]);
+
+        $this->actingAs($user)->getJson('/api/tasks?search='.urlencode('100%'))
+            ->assertOk()->assertJsonCount(1, 'data');
+    }
+
+    public function test_registration_is_closed_once_an_account_exists(): void
+    {
+        User::factory()->create();
+
+        $this->postJson('/api/register', [
+            'name' => 'Intruder', 'email' => 'x@example.com',
+            'password' => 'password123', 'password_confirmation' => 'password123',
+        ])->assertForbidden();
+
+        config(['app.allow_registration' => true]);
+        $this->postJson('/api/register', [
+            'name' => 'Friend', 'email' => 'y@example.com',
+            'password' => 'password123', 'password_confirmation' => 'password123',
+        ])->assertCreated();
+    }
+
+    public function test_import_hard_deletes_previous_tasks(): void
+    {
+        $user = User::factory()->create();
+        Task::factory()->for($user)->count(3)->create();
+
+        $this->actingAs($user)->postJson('/api/import', ['tasks' => [['id' => 1, 'title' => 'Fresh', 'color' => 'red']]])->assertNoContent();
+
+        $this->assertSame(1, Task::withTrashed()->where('user_id', $user->id)->count());
+        $this->assertSame('red', $user->tasks()->first()->color);
+    }
+
+    public function test_tasks_in_inactive_projects_stay_out_of_today_flagged_and_counts(): void
+    {
+        $user = User::factory()->create();
+        $active = Project::factory()->for($user)->create(['status' => 'active']);
+        $onHold = Project::factory()->for($user)->create(['status' => 'on_hold']);
+        $archived = Project::factory()->for($user)->create(['status' => 'active', 'archived_at' => now()]);
+        $today = today()->toDateString();
+
+        $keep = Task::factory()->for($user)->create(['project_id' => $active->id, 'due_date' => $today, 'flagged' => true]);
+        Task::factory()->for($user)->create(['project_id' => $onHold->id, 'due_date' => $today, 'flagged' => true]);
+        Task::factory()->for($user)->create(['project_id' => $archived->id, 'due_date' => $today, 'flagged' => true]);
+
+        $this->actingAs($user)->getJson('/api/views/today')->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $keep->id);
+        $this->actingAs($user)->getJson('/api/views/flagged')->assertJsonCount(1, 'data');
+        $this->actingAs($user)->getJson('/api/views/forecast')->assertJsonCount(1, 'data.'.$today);
+        $counts = $this->actingAs($user)->getJson('/api/views/counts')->json('data');
+        $this->assertSame(1, $counts['today']);
+        $this->assertSame(1, $counts['flagged']);
+    }
+
+    public function test_sequential_project_only_makes_the_first_task_available(): void
+    {
+        $user = User::factory()->create();
+        $project = Project::factory()->for($user)->create(['type' => 'sequential', 'status' => 'active']);
+        $first = Task::factory()->for($user)->create(['project_id' => $project->id, 'position' => 0, 'flagged' => true, 'due_date' => null, 'defer_date' => null]);
+        $second = Task::factory()->for($user)->create(['project_id' => $project->id, 'position' => 1, 'flagged' => true, 'due_date' => null, 'defer_date' => null]);
+
+        $ids = fn () => collect($this->actingAs($user)->getJson('/api/tasks?availability=available')->json('data'))->pluck('id')->all();
+        $this->assertSame([$first->id], $ids());
+
+        // Flagged-only items in Today need to be actionable too.
+        $this->actingAs($user)->getJson('/api/views/today')->assertJsonCount(1, 'data');
+
+        // Completing the first unblocks the next one.
+        $this->actingAs($user)->postJson("/api/tasks/{$first->id}/complete", ['completed' => true])->assertOk();
+        $this->assertSame([$second->id], $ids());
+    }
+
+    public function test_push_subscription_is_keyed_by_endpoint_hash(): void
+    {
+        $user = User::factory()->create();
+        $endpoint = 'https://push.example.com/'.str_repeat('a', 600);
+        $payload = ['endpoint' => $endpoint, 'keys' => ['p256dh' => 'k1', 'auth' => 'a1']];
+
+        $this->actingAs($user)->postJson('/api/push/subscribe', $payload)->assertCreated();
+        $payload['keys']['p256dh'] = 'k2';
+        $this->actingAs($user)->postJson('/api/push/subscribe', $payload)->assertCreated();
+
+        $this->assertSame(1, $user->pushSubscriptions()->count());
+        $sub = $user->pushSubscriptions()->first();
+        $this->assertSame('k2', $sub->public_key);
+        $this->assertSame(hash('sha256', $endpoint), $sub->endpoint_hash);
+
+        $this->actingAs($user)->postJson('/api/push/unsubscribe', ['endpoint' => $endpoint])->assertSuccessful();
+        $this->assertSame(0, $user->pushSubscriptions()->count());
+    }
 }

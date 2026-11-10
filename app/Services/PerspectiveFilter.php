@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 
 class PerspectiveFilter
 {
@@ -26,7 +27,7 @@ class PerspectiveFilter
 
         switch ($rules['availability'] ?? 'remaining') {
             case 'available':
-                $query->available($today);
+                $query->actionable($today);
                 break;
             case 'completed':
                 $query->where('status', 'done');
@@ -69,12 +70,11 @@ class PerspectiveFilter
 
         if (isset($rules['due_within_days'])) {
             $query->whereNotNull('due_date')
-                ->whereDate('due_date', '<=', now()->addDays((int) $rules['due_within_days']));
+                ->whereDate('due_date', '<=', Carbon::parse($today ?? now()->toDateString())->addDays((int) $rules['due_within_days'])->toDateString());
         }
 
         if (! empty($rules['search'])) {
-            $s = $rules['search'];
-            $query->where(fn (Builder $q) => $q->where('title', 'like', "%{$s}%")->orWhere('note', 'like', "%{$s}%"));
+            $query->search((string) $rules['search']);
         }
 
         return $query;

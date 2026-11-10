@@ -13,6 +13,8 @@ class AuthController extends Controller
 {
     public function register(Request $request)
     {
+        abort_unless(self::registrationOpen(), 403, 'Registration is closed.');
+
         $data = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email',
@@ -29,6 +31,12 @@ class AuthController extends Controller
         }
 
         return new UserResource($user);
+    }
+
+    /** First account is always allowed; later ones only when enabled in config. */
+    public static function registrationOpen(): bool
+    {
+        return config('app.allow_registration') || ! User::query()->exists();
     }
 
     public function login(Request $request)

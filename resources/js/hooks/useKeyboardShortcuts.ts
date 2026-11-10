@@ -30,6 +30,7 @@ export function useKeyboardShortcuts() {
     function onKey(e: KeyboardEvent) {
       // Esc works even while typing (blurs handled by the field itself).
       if (e.key === 'Escape') {
+        if (e.defaultPrevented) return // a modal/popover already handled it
         if (useUI.getState().helpOpen) return setHelpOpen(false)
         if (useUI.getState().selectedTaskId != null) return setSelectedTask(null)
         return

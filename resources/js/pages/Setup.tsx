@@ -7,6 +7,7 @@ export interface SetupStatus {
   migrated: boolean
   has_users: boolean
   needs_setup: boolean
+  registration_open?: boolean
 }
 
 type Step = 'migrate' | 'register' | 'import'

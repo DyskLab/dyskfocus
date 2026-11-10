@@ -68,6 +68,12 @@ return [
     'timezone' => 'UTC',
 
     /*
+    | Self-registration. The first account can always be created (first-run
+    | setup); after that, new sign-ups are refused unless this is enabled.
+    */
+    'allow_registration' => (bool) env('ALLOW_REGISTRATION', false),
+
+    /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------

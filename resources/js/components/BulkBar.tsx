@@ -77,10 +77,10 @@ export default function BulkBar() {
             </option>
           ))}
         </select>
-        <button onClick={del} className="flex items-center gap-1 rounded-md bg-red-50 px-2 py-1 text-xs text-red-600 hover:bg-red-100 dark:bg-red-950/40" title="Delete">
+        <button onClick={del} className="flex items-center gap-1 rounded-md bg-red-50 px-2 py-1 text-xs text-red-600 hover:bg-red-100 dark:bg-red-950/40" title="Delete" aria-label="Delete">
           <Trash2 size={14} /> Delete
         </button>
-        <button onClick={clear} className="rounded p-1 text-slate-400 hover:text-slate-600" title="Cancel">
+        <button onClick={clear} className="rounded p-1 text-slate-400 hover:text-slate-600" title="Cancel" aria-label="Cancel">
           <X size={14} />
         </button>
       </div>
